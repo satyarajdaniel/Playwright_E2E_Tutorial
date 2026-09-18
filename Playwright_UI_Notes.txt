@@ -1,0 +1,453 @@
+#Install Playwright (skelton for framework)
+1) npm init  > initialize a new Node.js project with package.json (npm init)
+2) npm init playwright 
+Initializes a Playwright project.
+Creates a basic project structure with recommended defaults.
+Installs Playwright and its dependencies.
+Generates a playwright.config file for configuration.
+Adds example tests so you can run Playwright immediately.
+Note: if node.js is not installed, it will throw error npm is not recognised command
+
+
+Notes:
+> All The Test are named as filename.spec.js (spec will make sure )
+> test keyword is used to define a test case. which accepts test description & function as arguments
+example:test("first platwright",function(){});
+> JS is asynchronous  (means code wont execute line by line ), so we use async (for function), await (for code line)
+ keywords explicitly (by declaring await we are telling JS to wait until the line of code execution is completed) & the function should be declared async
+Note : Without Declaring method as async, await declared at line is no use 
+
+Fixtures:
+1) Browser
+test("browser fixture", async ({ browser }) => {
+    // browser is given to you
+});
+Notice: you don’t new Browser() here.
+>Instead, Playwright’s test runner automatically gives you a browser object 
+>This is called a fixture → a ready‑made tool that Playwright sets up and cleans up for you (declared inside flowers {} as param to function)..
+> This is unlike Selenium , where we will manually set up webdriver (open,manage,close) on our own
+>Browser Fixture is universal, accesible to each test annotation
+>whenever a test annotation is declared, Fixtures are available immediately to be used
+
+2)page
+test("page fixture",async ({page}) =>{
+
+})
+> playwright also provides page fixture, which we can use directly to launch pages without need to
+declare browser/context (will assume default browser/context values)
+
+
+//--------------------playwright config---------------------------------//
+
+playwright config file (basics)
+1)testDir
+ testDir: './tests' > use to define tests needs to be run
+2)timeout 
+default timeout is 30 seconds, to over ride the default timeout (timeout : 40*1000) , this timeout is for each timeout
+3)expect
+expect assertion timeout , this timeout if for explicitly playwright assertions, not for code
+expect:{
+    timeout : 40*1000,
+},
+4)browser
+defining browser (tests to be launched in)
+use: {
+     browserName : 'chromium'
+},
+5)report
+report format 
+reporter:'html',
+
+6) we can export this default setup
+module.exports = config
+
+7) headless mode
+true/false (boolean)
+use: {
+     browserName : 'chromium',
+     headless : true,
+   }
+
+8) screenshot, trace,
+screenshot:'on' (to be inserted inside USE Object)
+trace:'true' or 'retain-on-failure'
+
+
+
+//--------------------CSS SELECTORS----------------------------------------//
+element: <input type="text" name="username" id="username" class="form-control">
+1)ID (tagname#id or #id)
+>>tagname#id , Ex:  input#username
+>>#id , Ex: #username 
+
+2)CLASS (tagname.class or .class)
+>>tagname.class , Ex:  input.form-control
+>>.class , Ex: .form-control
+
+note: multiple classes
+<p class="im-para red"> </p>, here tag has multiple classes im-para & red (space), we can use any class
+
+
+3)attribute & value (full & partial)
+[attribute='value']
+full: [class='form-control']
+partial: [class*='form']
+
+4) Travesing
+css > parenttagname >> child tagname
+
+5)Visible Text
+'text= Add To Cart'
+
+
+
+
+//--------------------test running commands---------------------------------//
+
+1) npx playwright test
+npx playwright> telling it to find playwright module path under node modules (without need to explicitly define the path)
+npx playwright test > will find "playwright.config.js" & run  it blindly & will run tests under testDir directory
+> By default they will run in headless mode
+Note: It will Scan each spec file & run each test annotation sequentially, but each spec file will be run in parallel
+
+2) npx playwright test --headed
+> to run tests  in headed mode
+
+3) npx playwright test tests/UIBasics.spec.js
+> This Will Run Only Single Test File
+
+4) npx playwright test --ui
+> This Will Trigger a new PopUp Screen, where, all tests are visible, from there we can run only necessary tests
+> After test run is completed, expand test , we can see each step execution
+
+5) npx playwright test --debug
+> this will launch the browser & stops execution in debug mode
+
+Note: CodeGen tool
+npx playwright codegen url
+
+
+//-------------- test helpers-----------------------------//
+
+1)test.only
+> used when only particular test needs to be run
+test.only("test only helper",async () =>{
+
+});
+
+
+//-------------------------------ASSERTIONS---------------------//
+> ALL ASSERTIONS HAS DEFAULT TIMEOUT OF '5' seconds, for custome timeouts add 'timeout' param.
+Ex: await expect(locator).toBeVisible({timeout:10000});
+
+>To Cange expect ASSERTIONS timeout, change expect timeout in playwright config file
+ expect:{
+    timeout : 40*1000,
+  }
+
+1)Title assertion
+await expect(page).toHaveTitle('Google');
+
+2)Element Partial Text assertion
+await expect(page.locator('[style*="block"]')).toContainText('Incorrect');
+
+3)Element Completed Text assertion
+await expect(page.locator('[style*="block"]')).toHaveText('')
+
+4)Element (Radio Button) Selected assertion (applicable only for radio buttons/not applicable to checkboxes)
+await expect(locator).toBeChecked();
+
+5)Validating an boolean
+false boolean validation (expected false)
+ expect(locator.isChecked()).toBeFalsy();
+true boolean validation (expected true)
+ expect(locator.isChecked()).toBeTruthy();
+
+6) Validating Element attribute
+await expect(locator).toHaveAttribute('class','blinkingText');
+
+7)Visible
+await expect(locator).toBeVisible();
+
+8)Hidden
+await expect(locator).toBeHidden();
+
+
+
+
+-------------------------
+Note: ELEMENT Status Booleans (Returns true/false boolean, does not asserts self)
+1) Radio/Check Button
+await locator.isChecked(); >> true/false
+await locator.isVisible();
+
+--------------------------
+await should declared where the actions is performed
+1) Declared Outside (because action is performed at last & outside)
+await expect(page.locator('#usertype').last()).toBeChecked();
+
+2) Declared Inside (because action is inside)
+expect(await page.locator('#terms').isChecked()).toBeTruthy();
+
+---------------------------
+//----------------------------------CUSTOMTIMEOUTS--------------------
+> Timeouts can be set at GlobalLevel > TestLevel > StepLevel
+
+1)Element Level Assertion Timeout
+await expect(locator).toBeVisible({timeout:10000});
+
+2)Test Level Assertion Timeout
+> at test Level, we can define a custom timeout & apply it across
+test("Playwright Locators",async ({page}) =>{
+
+    //custom timeout at TestLevel
+    const slowExpect = expect.configure({timeout:10000});
+
+    await slowExpect(page.locator('.my-4').first()).toHaveText('Shop');
+   
+});
+
+3)Test Level Timeout
+>In framework level, test timeout is defined ( timeout : 40*1000)
+
+test("Playwright Locators",async ({page}) =>{
+    test.setTimeout(60000);
+});
+
+
+4)Navigation & Action timeouts At Global Level
+> we can set action & Navigation timeouts in playwright config file, if not defined they will follow default overall timeout which is not ideal
+use: {
+    browserName: 'chromium',
+    headless: false,
+    // Maximum time each action (click, fill, hover) can take
+    actionTimeout: 10 * 1000, // 10 seconds
+    // Maximum time for page loading operations (goto, reload, waitForURL)
+    navigationTimeout: 15 * 1000, // 15 seconds
+  }
+
+
+
+
+
+
+
+//---------------------------ACTIONS------------------------//
+context:
+1)New page
+page1:
+const context = await browser.newContext();
+const page = await context.newPage();
+
+//actions performed on page1 which opened new page
+page2:
+>every action in JS Returns a promise, because every action is asynchronous 
+(Promise.all takes an array of promises and waits for all of them to finish.), 
+here context.waitForEvent('page') returns newPage, click doesnt return anything
+const [newPage] =await Promise.all([
+   context.waitForEvent('page'),
+   locator.click()
+])
+
+for multiple pages, each page will be const [page1,page2,page3]
+
+
+page:
+1)page launch 
+await page.goto("https://rahulshettyacademy.com/loginpagePractise/");
+
+2)Locator:
+page.locator('#username');
+
+3)LoadState
+page.waitForLoadState("networkidle")
+page.waitForLoadState("domcontentloaded")
+
+4)page navigation
+await page.goBack();   > navigates to back page
+await page.goForward(); > navigats to further page
+
+5)Events
+> this must me declated before the Event  (before browser closing, before dialog box appear) (before action)
+CLOSE:
+page.on('close'); > will wait for browser closing Event
+DIALOGBOX:
+page.on('dialog', dialog => dialog.accept());  >> ok/accept dialog
+page.on('dialog', dialog => dialog.dismiss()); >> cancel/dismiss dialog
+await page.locator.click();
+
+
+Locator:
+1)Fill
+locator.fill('Daniel')
+Note: For sending Text sequentially (with break of milli-sec), we have pressSequentially
+await selectCountry.pressSequentially('Ind',{delay:100}); 
+
+2)Click (applicable to radio/check buttons)
+locator.click();
+
+3)Element Text
+locator.textContent(); >> will return element text, if the text is attached to DOM
+locator.inputValue(); >> will return element text, while text is not attached to DOM
+
+Ex: Suppose we entered a text into textbox, it is not attached to DOM, so now to extract
+entered value we must use element.inputValue();
+
+4)Indexing
+element.first()
+element.last()
+element.nth(i)
+element.allTextContents()
+
+Ex: element.first().textContent();
+
+5)Dropdown selectOption
+// single selection matching the value or label
+element.selectOption('blue');
+
+// single selection matching the label
+element.selectOption({ label: 'Blue' });
+
+// single selection matching the value
+element.selectOption({ value: 'blue' });
+
+// single selection matching the index
+element.selectOption({ index: 1 });
+
+// multiple selection for red, green and blue options
+element.selectOption(['red', 'green', 'blue']);
+
+6)Check Box 
+//To Check
+ await page.locator('#terms').check();
+ await page.locator('#terms').click();
+
+//uncheck
+ await page.locator('#terms').uncheck();
+ await page.locator('#terms').click();
+
+ Note: There Is no direct check box expect assertion method is playwright , instead we can use isChecked() validating
+
+7)count
+Returns an locator matching  count
+ const products = await page.locator('.card-body');
+const productsCount = await products.count()
+
+8)waitFor
+will wait for the passed locator is attached to DOM
+await page.locator('div li').waitFor();
+
+9)Hovering
+await page.locater.hover();
+
+10)IFRAMES
+const iframe = await page.frameLocator(iframeId);
+
+await iframe.locator('div li').click();
+
+
+/--------------------PLAYWRIGHT AUTOWAIT----------------------/
+1)Element actions
+
+page.click()
+page.fill()
+page.type()
+page.check() / page.uncheck()
+page.selectOption()
+page.hover()
+page.dblclick()
+
+
+
+2) Navigation & load methods
+
+page.goto()
+page.reload()
+page.waitForNavigation()
+
+3)Assertions (Playwright Test)
+expect(page).toHaveURL()
+expect(locator).toBeVisible()
+expect(locator).toHaveText()
+
+Note: Playwright Autowait Mechanism is not applicable for all methods (it is applicable for only few elements
+above methods)
+
+----------------------PLAYWRIGHT LOCATORS----------------------------
+1)getByLabel
+> Applicable to elements with Label Tag & Visible Text of The Tag
+Ex:
+<label class="form-check-label" for="exampleCheck1">Check me out if you Love IceCreams!</label>
+click operation:
+await page.getByLabel('Check me out if you Love IceCreams!').click();
+
+Note: GetByLabel is suitable for Radio/Check/Dropdowns , not recommended for text-boxes due to inconsistencies
+
+2)getByPlaceholder
+> Can Be Used, When Element has placeholder attribute 
+
+Ex:
+<input class="form-control" id="exampleInputPassword1" placeholder="Password" type="password">
+ await page.getByPlaceholder('Password').fill('123');
+
+3)getByRole
+> Used to locate based on their role, accepts parameter (locatortype, locatorvisiblename)
+Page.getByRole(role: "alert" | "alertdialog" | "application" | "article" | "banner" | "blockquote" | "button" | "caption" | "cell" | "checkbox" | "code" | "columnheader" | "combobox" | "complementary" | "contentinfo" | "definition" | "deletion" | "dialog" | "directory" | "document" | "emphasis" | "feed" | "figure" | "form" | "generic" | "grid" | "gridcell" | "group" | "heading" | "img" | "insertion" | "link" | "list" | "listbox" | "listitem" | "log" | "main" | "marquee" | "math" | "meter" | "menu" | "menubar" | "menuitem" | "menuitemcheckbox" | "menuitemradio" | ... 36 more ... | "treeitem", options?: {
+    ...;
+} | undefined): Locator
+Allows locating elements by their ARIA role, ARIA attributes and accessible name.
+
+Ex:
+<input class="btn btn-success" type="submit" value="Submit">
+await page.getByRole('button', { name: 'Submit' }).click();
+
+4)getByText
+> It will surf through page & locate element with text
+
+Ex:
+<div class="alert alert-success alert-dismissible">
+     <a aria-label="close" class="close" data-dismiss="alert" href="#">×</a>
+<strong>Success!</strong> The Form has been submitted successfully!.
+</div>
+
+await page.getByText('Success! The Form has been submitted successfully!.').isVisible()
+
+5)Filter
+>Applicable on Locator
+
+(method) Locator.filter(options?: {
+ has?: Locator | undefined;
+ hasNot?: Locator;
+ hasNotText?: string | RegExp;
+ hasText?: string | RegExp;
+ visible?: boolean;
+} | undefined): Locator
+
+This method narrows existing locator according to the options, for example filters by text. It can be chained to filter multiple times.
+
+Usage
+
+const rowLocator = page.locator('tr');
+// ...
+await rowLocator
+ .filter({ hasText: 'text in column 1' })
+ .filter({ has: page.getByRole('button', { name: 'column 2 button' }) })
+ .screenshot();
+
+@param options
+
+Ex:
+>Filter Product with 'Nokia Edge' text & then clicking on it Add Button
+ await page.locator('app-card')
+              .filter({ hasText: 'Nokia Edge'})
+              .getByRole('button', { name: 'Add' }).click();
+
+
+
+
+
+
+
+
+
+
