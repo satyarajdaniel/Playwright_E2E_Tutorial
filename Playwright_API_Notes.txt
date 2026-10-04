@@ -1,0 +1,281 @@
+PLAYWRIGHT API NOTES
+====================
+
+Scope
+-----
+These notes are based only on these five test files in this project:
+- tests/WebAPI_1.spec.js
+- tests/WebAPI_1_Refac.spec.js
+- tests/WEBAPI_2.spec.js
+- tests/WebAPI_Network.spec.js
+- tests/WEBAPI_Network_2.spec.js
+
+Examples follow those files. Real account credentials are represented by
+placeholders here; do not copy passwords or tokens into notes or source control.
+
+
+1) IMPORTS AND TEST DATA
+------------------------
+The API specs import Playwright Test's `test`, `expect`, and `request` values:
+
+    const { test, expect, request } = require('@playwright/test');
+
+The order tests define login data and order data as JavaScript objects. Keep the
+same payload structure while supplying credentials from an appropriate local
+source:
+
+    const loginPayload = {
+      userEmail: '<TEST_EMAIL>',
+      userPassword: '<TEST_PASSWORD>'
+    };
+
+    const orderPayload = {
+      orders: [{
+        country: 'India',
+        productOrderedId: '<PRODUCT_ID>'
+      }]
+    };
+
+The order endpoint used in the specs is:
+
+    https://rahulshettyacademy.com/api/ecom/order/create-order
+
+
+2) API LOGIN AND TOKEN
+----------------------
+`WebAPI_1.spec.js` creates a request context and sends the login payload in a
+POST request. It checks `ok()`, parses the JSON response, and stores the token:
+
+    let loginToken;
+
+    test.beforeAll(async () => {
+      const apiContext = await request.newContext();
+      const loginResponse = await apiContext.post(
+        'https://rahulshettyacademy.com/api/ecom/auth/login',
+        { data: loginPayload }
+      );
+
+      expect(loginResponse.ok()).toBeTruthy();
+      const loginJSON = await loginResponse.json();
+      loginToken = loginJSON.token;
+    });
+
+The response property read by the spec is `token`. The spec also reads the
+created order response's `orders[0]` value. Keep tokens private and do not print
+them to logs.
+
+
+3) CREATE AN ORDER WITH THE TOKEN
+---------------------------------
+`WebAPI_1.spec.js` posts the order payload and sends the login token in the
+`Authorization` header, along with a JSON content type:
+
+    const placeOrderResponse = await apiContext.post(
+      'https://rahulshettyacademy.com/api/ecom/order/create-order',
+      {
+        data: orderPayload,
+        headers: {
+          Authorization: loginToken,
+          'content-type': 'application/json'
+        }
+      }
+    );
+
+    const orderJSON = await placeOrderResponse.json();
+    const productOrderId = orderJSON.orders[0];
+
+The spec parses the order response and extracts `orders[0]`. It does not assert
+an order response status in this part of the test.
+
+
+4) USE THE API TOKEN IN A UI TEST
+---------------------------------
+The API-created login token is placed in browser `localStorage` before the
+client app is opened. The storage key in these specs is `token`:
+
+    await page.addInitScript(value => {
+      window.localStorage.setItem('token', value);
+    }, loginToken);
+
+    await page.goto('https://rahulshettyacademy.com/client');
+
+`WebAPI_1.spec.js` then selects `ZARA COAT 3`, adds it to the cart, opens Cart,
+checks the product is visible, checks out, selects India, and verifies the
+confirmation text:
+
+    await page.locator('.card-body')
+      .filter({ hasText: 'ZARA COAT 3' })
+      .getByRole('button', { name: 'Add to Cart' })
+      .click();
+
+    await page.getByRole('listitem')
+      .getByRole('button', { name: 'Cart' })
+      .click();
+
+    await page.locator('div li').first().waitFor();
+    await expect(page.getByText('ZARA COAT 3')).toBeVisible();
+
+    await page.getByRole('button', { name: 'Checkout' }).click();
+    await page.getByPlaceholder('Select Country').pressSequentially('ind');
+    await page.getByRole('button', { name: 'India' }).nth(1).click();
+    await page.getByText('PLACE ORDER').click();
+    await expect(page.getByText('Thankyou for the order.')).toBeVisible();
+
+The spec has commented-out UI login steps. Its active flow uses the API token
+injected into localStorage instead of filling the login form.
+
+
+5) REUSE API SETUP THROUGH APIUTILS
+-----------------------------------
+`WebAPI_1_Refac.spec.js` imports `APiUtils`, creates it with an API request
+context and login payload, then calls `createOrder` in `beforeAll`:
+
+    const { APiUtils } = require('./Utils/APIUtils');
+    let response;
+
+    test.beforeAll(async () => {
+      const apiContext = await request.newContext();
+      const apiUtils = new APiUtils(apiContext, loginPayload);
+      response = await apiUtils.createOrder(orderPayload);
+    });
+
+The spec uses `response.token` to initialize localStorage and `response.orderId`
+to check the order history. The helper implementation is in
+`tests/Utils/APIUtils.js`; its internal details are outside the five spec files
+covered by these notes.
+
+
+6) VERIFY THE API-CREATED ORDER IN THE UI
+-----------------------------------------
+`WebAPI_1_Refac.spec.js` opens the client page, navigates to My Orders, scans
+rows for the API-created order ID, opens the matching row, and checks its detail
+text against the returned ID:
+
+    await page.addInitScript(value => {
+      window.localStorage.setItem('token', value);
+    }, response.token);
+
+    await page.goto('https://rahulshettyacademy.com/client');
+    await page.locator("button[routerlink*='myorders']").click();
+    await page.locator('tbody').waitFor();
+
+    const rows = page.locator('tbody tr');
+    for (let index = 0; index < await rows.count(); index++) {
+      const rowOrderId = await rows.nth(index).locator('th').textContent();
+      if (response.orderId.includes(rowOrderId)) {
+        await rows.nth(index).locator('button').first().click();
+        break;
+      }
+    }
+
+    const orderIdDetails = await page.locator('.col-text').textContent();
+    expect(response.orderId.includes(orderIdDetails)).toBeTruthy();
+
+
+7) UI LOGIN AND SAVED STORAGE STATE
+-----------------------------------
+`WEBAPI_2.spec.js` takes a different path: it signs in through the UI in a
+`beforeAll` hook, waits for the page load state, saves the browser context state
+to `state.json`, and creates a new context using that file:
+
+    test.beforeAll(async ({ browser }) => {
+      const browserContext = await browser.newContext();
+      const page = await browserContext.newPage();
+      await page.goto('https://rahulshettyacademy.com/client');
+      await page.locator('#userEmail').fill('<TEST_EMAIL>');
+      await page.locator('#userPassword').fill('<TEST_PASSWORD>');
+      await page.locator('.login-btn').click();
+      await page.waitForLoadState('networkidle');
+
+      await browserContext.storageState({ path: 'state.json' });
+      injectedBrowserContext = await browser.newContext({
+        storageState: 'state.json'
+      });
+    });
+
+The test then opens a new page from `injectedBrowserContext`. It selects a
+product by iterating through `.card-body` locators, checks the cart, completes
+checkout, and reads the order ID from the confirmation page. The same test opens
+Orders and reads order IDs from `tbody tr th`.
+
+The spec includes `page.pause()` during setup. That pauses execution for manual
+interaction while running the test.
+
+
+8) MOCK THE ORDERS RESPONSE
+---------------------------
+`WebAPI_Network.spec.js` defines an empty-orders response:
+
+    const fakePayLoadOrders = { data: [], message: 'No Orders' };
+
+It registers a route for the customer's get-orders request before clicking the
+Orders button. Inside the route, `page.request.fetch(route.request())` obtains
+the actual response; the test then fulfills the intercepted browser request
+with the fake body:
+
+    await page.route(
+      'https://rahulshettyacademy.com/api/ecom/order/get-orders-for-customer/<CUSTOMER_ID>',
+      async route => {
+        const response = await page.request.fetch(route.request());
+        const body = JSON.stringify(fakePayLoadOrders);
+        route.fulfill({ response, body });
+      }
+    );
+
+    await page.locator("button[routerlink*='myorders']").click();
+    await page.waitForResponse(
+      'https://rahulshettyacademy.com/api/ecom/order/get-orders-for-customer/*'
+    );
+
+The route must be registered before the UI action that triggers the request.
+This spec forwards the real response metadata and replaces the response body.
+
+
+9) INTERCEPT AND MODIFY AN ORDER-DETAILS REQUEST
+------------------------------------------------
+`WEBAPI_Network_2.spec.js` logs in through the UI and opens Orders. It registers
+request and response listeners that print each URL, and each response status:
+
+    page.on('request', request => console.log(request.url()));
+    page.on('response', response =>
+      console.log(response.url(), response.status())
+    );
+
+It also aborts image requests matching the listed extensions:
+
+    await page.route('**/*.{jpeg,jpg,png}', route => route.abort());
+
+For the security scenario, it intercepts an order-details request and continues
+it with a different order ID in the URL:
+
+    await page.route(
+      'https://rahulshettyacademy.com/api/ecom/order/get-orders-details?id=*',
+      route => route.continue({
+        url: 'https://rahulshettyacademy.com/api/ecom/order/get-orders-details?id=<OTHER_ORDER_ID>'
+      })
+    );
+
+The route is registered before clicking the View button. The UI assertion checks
+that the last paragraph says:
+
+    await expect(page.locator('p').last())
+      .toHaveText('You are not authorize to view this order');
+
+In this spec, `route.continue()` changes the outgoing request URL before it is
+sent to the server. In `WebAPI_Network.spec.js`, `route.fulfill()` supplies a
+modified response to the browser instead.
+
+
+10) WHAT EACH OF THE FIVE SPECS DEMONSTRATES
+--------------------------------------------
+- `WebAPI_1.spec.js`: API login, order creation, token injection into
+  localStorage, and a UI cart/checkout journey.
+- `WebAPI_1_Refac.spec.js`: order creation through `APiUtils`, then checking
+  the order history and order details in the UI.
+- `WEBAPI_2.spec.js`: UI login, save/reuse `state.json`, checkout, and read
+  order IDs from the Orders page.
+- `WebAPI_Network.spec.js`: replace the customer orders response body with an
+  empty-orders payload and wait for the matching response.
+- `WEBAPI_Network_2.spec.js`: abort image requests, log request/response URLs
+  and statuses, rewrite an order-details request, and verify the authorization
+  message.

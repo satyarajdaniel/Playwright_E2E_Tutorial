@@ -17,6 +17,10 @@ example:test("first platwright",function(){});
  keywords explicitly (by declaring await we are telling JS to wait until the line of code execution is completed) & the function should be declared async
 Note : Without Declaring method as async, await declared at line is no use 
 
+> MAIN IMPORT: for writing assertions & tests
+
+const { test, expect } = require('@playwright/test');
+
 Fixtures:
 1) Browser
 test("browser fixture", async ({ browser }) => {
@@ -37,7 +41,7 @@ test("page fixture",async ({page}) =>{
 declare browser/context (will assume default browser/context values)
 
 
-//--------------------playwright config---------------------------------//
+//--------------------playwright config file (playwright.config.js)---------------------------------//
 
 playwright config file (basics)
 1)testDir
@@ -72,6 +76,16 @@ use: {
 screenshot:'on' (to be inserted inside USE Object)
 trace:'true' or 'retain-on-failure'
 
+//--------------------package file (package.json)---------------------------------//
+>suppose we want to run UI/API in DEBUG in VS Code, we should add our scripts in package file (add an break point ),
+ then run search & click (> Debug npm Script)
+ "scripts": {
+    "test": "npx playwright test tests/WebAPI_2_Refac.spec.js --headed"
+  }
+
+> Another Complete Way to Debug API's is, make trace:on , & download the trace file & upload the same to , playwright trace viewer
+website (trace.playwright.dev)
+ 
 
 
 //--------------------CSS SELECTORS----------------------------------------//
@@ -134,6 +148,18 @@ npx playwright codegen url
 test.only("test only helper",async () =>{
 
 });
+
+2)test.beforeAll
+
+test.beforeAll(() => {
+    
+})
+
+3)test.beforeEach
+
+test.beforeEach(() => {
+    
+})
 
 
 //-------------------------------ASSERTIONS---------------------//
