@@ -7,12 +7,14 @@ Installs Playwright and its dependencies.
 Generates a playwright.config file for configuration.
 Adds example tests so you can run Playwright immediately.
 Note: if node.js is not installed, it will throw error npm is not recognised command
+> Note: npm install, will install all dependencies in package.json file
 
 
 Notes:
 > All The Test are named as filename.spec.js (spec will make sure )
 > test keyword is used to define a test case. which accepts test description & function as arguments
 example:test("first platwright",function(){});
+Note: Test description Must me always unique, playwright will throw error in any other cases
 > JS is asynchronous  (means code wont execute line by line ), so we use async (for function), await (for code line)
  keywords explicitly (by declaring await we are telling JS to wait until the line of code execution is completed) & the function should be declared async
 Note : Without Declaring method as async, await declared at line is no use 
@@ -72,9 +74,71 @@ use: {
      headless : true,
    }
 
-8) screenshot, trace,
+8) screenshot, trace, video
 screenshot:'on' (to be inserted inside USE Object)
 trace:'true' or 'retain-on-failure'
+
+note : 
+> screenshot can be set to 'on', 'off', 'only-on-failure'
+> video can be set to 'on', 'off', 'on-first-retry', 'retain-on-failure'
+
+8)Projects
+> to run tests on multiple browsers , we need to use Projects
+projects: [
+  {
+    name: 'safari execution',
+    use: {
+      browserName: 'webkit',
+      headless: true,
+      screenshot: 'off',
+      trace: 'on', // off,on
+    },
+  },
+  {
+    name: 'chrome',
+    use: {
+      browserName: 'chromium',
+      headless: true,
+      screenshot: 'on', // capture screenshots for debugging
+      trace: 'on', // keep trace for failed tests
+      viewport: { width: 1280, height: 720 }, // optional
+      ignoreHTTPSErrors: true, // useful for local testing
+    },
+  },
+];
+
+9) we can add view ports & devices to be tested on
+> for custom viewport setting
+use: {
+      browserName: 'webkit',
+      headless: false,
+      screenshot: 'off',
+      trace: 'on', // off,on
+      viewport: { width: 1280, height: 720 }, // optional
+    }
+> for specific devices  (no need to speciy viewports here)
+use: {
+      browserName: 'webkit',
+      headless: false,
+      screenshot: 'off',
+      trace: 'on', 
+      ...devices['iPhone 8']
+    },
+
+10) Ignore HTTPS error (advance & give ssl certificate)
+> inside use JSON, >> use:{ignoreHTTPSErrors:true}
+
+11) retries : 1,
+> will re-run failed tests only (n no of times), in report if test passes on re-run it will
+put it under flaky
+
+11)workers
+> no of paralle runs to be run will be defined here, declared globally
+const config = {
+    workers = 5
+}
+
+
 
 //--------------------package file (package.json)---------------------------------//
 >suppose we want to run UI/API in DEBUG in VS Code, we should add our scripts in package file (add an break point ),
@@ -136,6 +200,19 @@ Note: It will Scan each spec file & run each test annotation sequentially, but e
 
 5) npx playwright test --debug
 > this will launch the browser & stops execution in debug mode
+
+6) npx playwright test tests/UIBasics.spec.js playwright.config1.js
+>to run test on a custom config file, instead of default config file (npx playwright test testFile configFile)
+
+7) npx playwright test tests/UIBasics.spec.js --config  playwright.config1.js --project=chrome
+> under projects,suppose we want to run in only a specific browser defined under proejcts
+
+8) npx playwright tests --grep  @web
+> to run tests based on tags , above will run tests containing web tag
+test("@web login page validation",()=>{
+
+}
+
 
 Note: CodeGen tool
 npx playwright codegen url
@@ -468,8 +545,41 @@ Ex:
               .filter({ hasText: 'Nokia Edge'})
               .getByRole('button', { name: 'Add' }).click();
 
+--------------------------------parallel---------------------
 
+ Once all tests are triggered under tests, 
+ >All test Files will be triggered parallel
+ > tests will be triggered sequentially
 
+By Default plwyright gives 5 workers (each worker represent one test file, which can be configured)
+> each worker is separately run, parallely
+Ex: Running 15 tests using 5 workers 
+
+No Of workers Can be set,in playwright.config.js file, universal
+
+const config = {
+    workers = 5
+}
+
+> suppose we want to run all tests in a test file in parallel, we can use 
+test.describe.configure({mode:'parallel'}), this should be put above all tests in the test file, 
+to run all files in that file in parallel
+
+test.describe.configure({mode:'serial'}), this mode can be used when there is a data dependency , for 2nd test based on 1st test
+> in cases of mode:serial, since tests will execute serially, if one of test fails then all its succeding tests will be skipped
+
+------------------------------------------TAGGING -------------------
+
+> for running tests with specific Tags, add tag inside test description
+> below a tag is declared, with "web" --> @web
+test("@web login page validation",()=>{
+
+}
+
+)
+> to run tests based on Tags
+
+npx playwright tests --grep  @web
 
 
 

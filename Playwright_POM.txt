@@ -1,0 +1,37 @@
+//Maintaing Objects & Methods separately are important
+
+1)class
+> Class Name should be same as pageFile name
+
+Declaration:
+
+class Loginpage{
+
+}
+
+2) Constructor:
+> Mainly used to initialize the page , before using/calling methods inside them
+> It is suggested to create all locators inside constructor, so all locators will be initialised while creating the object
+> all declarations made inside constructor with 'this' prefix, means it belongs to current class & can be called class variable
+
+
+Declaration:
+
+class Loginpage{
+    constructor(){
+        this.loginButton = page.locator("");
+    }
+}
+
+//Above page has no life , so while creating an object , we will pass page while creating object
+//Here page scope in inside constructor, to make the scope outside class, we declare a class variable (this.page), to make
+the page available to entire class
+
+class Loginpage{
+    constructor(page){
+        this.page = page
+        this.loginButton = page.locator("");
+    }
+}
+
+loginPage lg = new Loginpage(page);
